@@ -13,7 +13,18 @@ export default function ChartPage() {
     const [data, setData] = useState<any[]>([]);
     const [volumeData, setVolumeData] = useState<any[]>([]);
     const [symbol, setSymbol] = useState("RELIANCE");
+    const [interval, setInterval] = useState("1d");
     const [isLoading, setIsLoading] = useState(false);
+
+    const intervals = [
+        { label: "1m", value: "1m" },
+        { label: "15m", value: "15m" },
+        { label: "30m", value: "30m" },
+        { label: "1h", value: "1h" },
+        { label: "1d", value: "1d" },
+        { label: "1W", value: "1wk" },
+        { label: "1M", value: "1mo" },
+    ];
 
     // Script management
     const [scripts, setScripts] = useState<SavedScript[]>([]);
@@ -30,7 +41,7 @@ export default function ChartPage() {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch(`/api/stock/${symbol}`);
+                const response = await fetch(`/api/stock/${symbol}?interval=${interval}`);
                 const result = await response.json();
 
                 if (Array.isArray(result)) {
@@ -49,7 +60,7 @@ export default function ChartPage() {
         };
 
         fetchData();
-    }, [symbol]);
+    }, [symbol, interval]);
 
     // Re-calculate indicators when data or active scripts change
     useEffect(() => {
@@ -108,20 +119,36 @@ export default function ChartPage() {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <h2 className="text-3xl font-bold tracking-tight">Advanced Charting</h2>
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="text"
-                            value={symbol}
-                            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                            className="bg-background border border-input rounded px-3 py-1 text-sm w-32"
-                            placeholder="Symbol"
-                        />
-                        <button
-                            className="bg-blue-600 px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? "Loading..." : "Update"}
-                        </button>
+                    <div className="flex items-center space-x-4">
+                        <div className="flex items-center bg-card/50 border border-white/10 rounded-md p-1">
+                            {intervals.map((int) => (
+                                <button
+                                    key={int.value}
+                                    onClick={() => setInterval(int.value)}
+                                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${interval === int.value
+                                            ? "bg-blue-600 text-white"
+                                            : "text-muted-foreground hover:text-white hover:bg-white/5"
+                                        }`}
+                                >
+                                    {int.label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="text"
+                                value={symbol}
+                                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                                className="bg-background border border-input rounded px-3 py-1 text-sm w-32"
+                                placeholder="Symbol"
+                            />
+                            <button
+                                className="bg-blue-600 px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? "Loading..." : "Update"}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -129,7 +156,9 @@ export default function ChartPage() {
                     <CardHeader className="border-b border-white/5 p-4">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-base font-medium">{symbol}.NS - NSE India</CardTitle>
-                            <div className="text-sm text-muted-foreground">Daily Interval</div>
+                            <div className="text-sm text-muted-foreground">
+                                {intervals.find(i => i.value === interval)?.label} Interval
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">

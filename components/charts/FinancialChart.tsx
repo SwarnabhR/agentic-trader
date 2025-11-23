@@ -34,6 +34,16 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({
 }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
+    const [tooltipData, setTooltipData] = React.useState<{
+        time: string;
+        open: string;
+        high: string;
+        low: string;
+        close: string;
+        volume: string;
+        change: string;
+        changeColor: string;
+    } | null>(null);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -59,6 +69,18 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({
             rightPriceScale: {
                 borderColor: 'rgba(197, 203, 206, 0.1)',
             },
+            crosshair: {
+                // Enable crosshair but we'll use our own tooltip
+                vertLine: {
+                    width: 1,
+                    color: 'rgba(224, 227, 235, 0.1)',
+                    style: 0,
+                },
+                horzLine: {
+                    visible: true,
+                    labelVisible: true,
+                },
+            },
         });
 
         chartRef.current = chart;
@@ -73,8 +95,9 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({
 
         candlestickSeries.setData(data);
 
+        let volumeSeries: any = null;
         if (volumeData) {
-            const volumeSeries = chart.addSeries(HistogramSeries, {
+            volumeSeries = chart.addSeries(HistogramSeries, {
                 priceFormat: {
                     type: 'volume',
                 },
@@ -111,6 +134,51 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({
             });
         }
 
+        // Subscribe to crosshair move for tooltip
+        chart.subscribeCrosshairMove(param => {
+            if (
+                param.point === undefined ||
+                !param.time ||
+                param.point.x < 0 ||
+                param.point.x > chartContainerRef.current!.clientWidth ||
+                param.point.y < 0 ||
+                param.point.y > chartContainerRef.current!.clientHeight
+            ) {
+                setTooltipData(null);
+            } else {
+                // Get data for the current logical index
+                const dataPoint = param.seriesData.get(candlestickSeries) as any;
+                if (dataPoint) {
+                    const open = dataPoint.open;
+                    const close = dataPoint.close;
+                    const high = dataPoint.high;
+                    const low = dataPoint.low;
+                    const change = ((close - open) / open) * 100;
+
+                    let volume = '';
+                    if (volumeSeries) {
+                        const volData = param.seriesData.get(volumeSeries) as any;
+                        if (volData) {
+                            volume = volData.value.toLocaleString();
+                        }
+                    }
+
+                    const dateStr = new Date(dataPoint.time * 1000).toLocaleString();
+
+                    setTooltipData({
+                        time: dateStr,
+                        open: open.toFixed(2),
+                        high: high.toFixed(2),
+                        low: low.toFixed(2),
+                        close: close.toFixed(2),
+                        volume: volume,
+                        change: change.toFixed(2) + '%',
+                        changeColor: change >= 0 ? '#26a69a' : '#ef5350'
+                    });
+                }
+            }
+        });
+
         window.addEventListener('resize', handleResize);
 
         return () => {
@@ -122,7 +190,43 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({
     return (
         <div
             ref={chartContainerRef}
-            className="w-full h-[500px] relative"
-        />
+            className="w-full h-[500px] relative group"
+        >
+            {tooltipData && (
+                <div className="absolute top-2 left-2 z-20 bg-background/80 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-lg text-xs pointer-events-none">
+                    <div className="flex flex-col gap-1">
+                        <div className="text-muted-foreground font-mono">{tooltipData.time}</div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">O</span>
+                                <span className="font-mono text-blue-400">{tooltipData.open}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">H</span>
+                                <span className="font-mono text-blue-400">{tooltipData.high}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">L</span>
+                                <span className="font-mono text-blue-400">{tooltipData.low}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">C</span>
+                                <span className="font-mono text-blue-400">{tooltipData.close}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">Vol</span>
+                                <span className="font-mono text-yellow-400">{tooltipData.volume}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-muted-foreground">Chg</span>
+                                <span className="font-mono" style={{ color: tooltipData.changeColor }}>
+                                    {tooltipData.change}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
